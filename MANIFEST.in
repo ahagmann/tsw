@@ -1,0 +1,2 @@
+include tsw/*.ui
+include tsw/*.png
