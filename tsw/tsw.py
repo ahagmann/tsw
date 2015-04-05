@@ -32,6 +32,9 @@ class EditableQLabel(QtGui.QStackedWidget):
         self.setCurrentIndex(1)
         self.edit.setFocus()
 
+    def text(self):
+        return self.label.text()
+
     def edit_finish(self):
         text = self.edit.text()
         self.label.setText(text)
@@ -53,81 +56,59 @@ class KlickableQLabel(QtGui.QLabel):
 
 
 class Task(QtCore.QObject):
+    id = 0
+
     def __init__(self, parent=None):
         QtCore.QObject.__init__(self, parent)
 
-        self.value = 0
+        self.id = Task.id
+        self.label = EditableQLabel("Task", parent)
+        self.time = KlickableQLabel("", parent)
+        self.button = QtGui.QPushButton("Start", parent)
+        self.button.setCheckable(True)
+        self.tray = QtGui.QAction("Task", parent)
+        self.tray.setCheckable(True)
         self.start_time = 0
+        self.value = 0
+        self.active = False
 
-        self.name_label = EditableQLabel("Task")
-        self.time_label = KlickableQLabel("")
-        self.action_button = QtGui.QPushButton("Start")
-        self.action_button.setCheckable(True)
-        self.tray_menue = QtGui.QAction("Task", self)
-        self.tray_menue.setCheckable(True)
+        self.time.double_click.connect(self.correct_time)
+        self.label.changed.connect(self.tray.setText)
 
-        self.action_button.toggled.connect(self.button_toggeld)
-        self.time_label.double_click.connect(self.time_double_clicked)
-        self.name_label.changed.connect(self.tray_menue.setText)
-        self.tray_menue.toggled.connect(self.button_toggeld)
+        Task.id += 1
 
-        self.update()
+    def stop(self, stop_time=None):
+        if stop_time is None:
+            stop_time = time.time()
+        self.value += stop_time - self.start_time
+        self.button.setChecked(False)
+        self.tray.setChecked(False)
+        self.button.setText("Continue")
+        self.active = False
 
-    def button_toggeld(self, value):
-        if value:
-            self.ui_start()
-            self.start()
-        else:
-            self.stop()
-            self.ui_stop()
+    def start(self):
+        self.start_time = time.time()
+        self.button.setChecked(True)
+        self.tray.setChecked(True)
+        self.button.setText("Stop")
+        self.active = True
 
-    def ui_start(self):
-        self.action_button.setText("Stop")
-        self.action_button.setChecked(True)
-        self.tray_menue.setChecked(True)
-
-    def ui_stop(self):
-        self.action_button.setChecked(False)
-        self.tray_menue.setChecked(False)
-        if self.value == 0:
-            self.action_button.setText("Start")
-        else:
-            self.action_button.setText("Continue")
-
-    def time_double_clicked(self):
-        value, ok = QtGui.QInputDialog.getInt(None, "Add time in minutes", "Minutes")
+    def correct_time(self):
+        value, ok = QtGui.QInputDialog.getInt(None, "Correct Time", "Add/substract time in minutes to '%s'" % self.label.text())
         if ok:
             self.value += value*60
             self.update()
 
-    def start(self):
-        self.start_time = time.time()
-
-    def stop(self, stop_time=None):
-        if self.is_active():
-            if stop_time is None:
-                stop_time = time.time()
-            interval = stop_time - self.start_time
-            self.value += interval
-
     def update(self):
         value = self.get_value()
-        self.time_label.setText("%d:%02d:%02d" % (value/3600, (value/60) % 60, value % 60))
-
-    def is_active(self):
-        return self.action_button.isChecked()
+        self.time.setText("%d:%02d" % (value/3600, (value/60) % 60))
 
     def get_value(self):
-        if self.is_active():
-            interval = time.time() - self.start_time
+        if self.active:
+            value = self.value + time.time() - self.start_time
         else:
-            interval = 0
-
-        return self.value + interval
-
-    def revert(self, revert_time):
-        self.stop(revert_time)
-        self.ui_stop()
+            value = self.value
+        return value
 
 
 class Mainwindow(QtGui.QMainWindow):
@@ -155,7 +136,7 @@ class Mainwindow(QtGui.QMainWindow):
         self.status.setAlignment(QtCore.Qt.AlignRight)
         self.statusbar.addWidget(self.status, 1)
 
-        self.tasks = []
+        self.tasks = {}
 
         self.update_timer = QtCore.QTimer(self)
         self.update_timer.timeout.connect(self.update)
@@ -165,36 +146,53 @@ class Mainwindow(QtGui.QMainWindow):
 
     def update(self):
         sum = 0
-        for t in self.tasks:
-            t.update()
-            sum += t.get_value()
+        for task in self.tasks.values():
+            task.update()
+            sum += task.value
 
         self.status.setText("total: %d:%02d" % (sum/3600, (sum/60) % 60))
 
         if actmon.get_idle_time() >= 15*60*1000:
-            active = False
-            for t in self.tasks:
-                if t.is_active():
-                    active = True
+            active_task = None
+            for t in self.tasks.values():
+                if t.active:
+                    active_task = t
                     break
 
-            if active:
+            if active_task:
                 inactive_start_time = time.time() - 15*60
-                value = QtGui.QMessageBox.question(self, "No Activity", "No activity since %s. Stop clocks?" % time.strftime("%H:%M", time.localtime(inactive_start_time)), "Yes", "No")
+                value = QtGui.QMessageBox.question(self, "No Activity", "No activity since %s. Stop '%s'?" %
+                    (time.strftime("%H:%M", time.localtime(inactive_start_time)), active_task.label.text()), "Yes", "No")
                 if value == 0:
-                    for t in self.tasks:
-                        if t.is_active():
-                            t.revert(inactive_start_time)
+                    active_task.stop(inactive_start_time)
 
     def add(self):
-        task = Task(self)
-        self.tasks.append(task)
-
         row = self.ui.main.layout().rowCount()
-        self.ui.main.layout().addWidget(task.name_label, row, 0)
-        self.ui.main.layout().addWidget(task.time_label, row, 1)
-        self.ui.main.layout().addWidget(task.action_button, row, 2)
-        self.sys_tray_menu.addAction(task.tray_menue)
+
+        task = Task(self)
+        id = task.id
+
+        task.button.clicked.connect(lambda: self.toggle_state(id))
+        task.tray.triggered.connect(lambda: self.toggle_state(id))
+        self.tasks[id] = task
+
+        self.ui.main.layout().addWidget(task.label, row, 0)
+        self.ui.main.layout().addWidget(task.time, row, 1)
+        self.ui.main.layout().addWidget(task.button, row, 2)
+        self.sys_tray_menu.addAction(task.tray)
+
+        self.update()
+
+    def toggle_state(self, id):
+        task = self.tasks[id]
+
+        if task.active:
+            task.stop()
+        else:
+            for t in self.tasks.values():
+                if t.active:
+                    t.stop()
+            task.start()
 
     def exit_action(self):
         self.exit = True
