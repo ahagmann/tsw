@@ -148,7 +148,7 @@ class Mainwindow(QtGui.QMainWindow):
         sum = 0
         for task in self.tasks.values():
             task.update()
-            sum += task.value
+            sum += task.get_value()
 
         self.status.setText("total: %d:%02d" % (sum/3600, (sum/60) % 60))
 
@@ -204,9 +204,12 @@ class Mainwindow(QtGui.QMainWindow):
             self.hide()
 
     def tray_action(self, reason):
-        #print(reason)
-        #if reason == QtGui.QSystemTrayIcon.DoubleClick:
-        self.show()
+        if reason == QtGui.QSystemTrayIcon.Trigger:
+            if self.isVisible():
+                self.hide()
+            else:
+                self.setGeometry(self.geometry())
+                self.show()
 
 
 def main():
