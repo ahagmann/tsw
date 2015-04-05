@@ -154,7 +154,7 @@ class Mainwindow(QtGui.QMainWindow):
 
         self.status.setText("total: %d:%02d" % (sum/3600, (sum/60) % 60))
 
-	active_task = None
+        active_task = None
         for t in self.tasks.values():
             if t.active:
                 active_task = t
