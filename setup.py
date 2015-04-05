@@ -23,7 +23,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.2.0b',
+    version='0.2.1b',
 
     description='Task StopWatch',
     long_description=long_description,
@@ -33,7 +33,7 @@ setup(
 
     # Author details
     author='ahagmann',
-    author_email='',
+    author_email='github@hagmann.name',
 
     # Choose your license
     license='GPLv2',
@@ -55,6 +55,7 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
+        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
     ],
 
