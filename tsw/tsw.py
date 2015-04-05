@@ -119,9 +119,11 @@ class Mainwindow(QtGui.QMainWindow):
         self.ui.show()
 
         self.exit = False
+        self.inactive_icon = QtGui.QIcon(os.path.join(ROOT, 'icon.png'))
+        self.active_icon = QtGui.QIcon(os.path.join(ROOT, 'icon_green.png'))
 
         self.sys_tray_icon = QtGui.QSystemTrayIcon(self)
-        self.sys_tray_icon.setIcon(QtGui.QIcon(os.path.join(ROOT, 'icon.png')))
+        self.sys_tray_icon.setIcon(self.inactive_icon)
         self.sys_tray_icon.setVisible(True)
         self.sys_tray_icon.activated.connect(self.tray_action)
         self.sys_tray_menu = QtGui.QMenu(self)
@@ -152,19 +154,23 @@ class Mainwindow(QtGui.QMainWindow):
 
         self.status.setText("total: %d:%02d" % (sum/3600, (sum/60) % 60))
 
-        if actmon.get_idle_time() >= 15*60*1000:
-            active_task = None
-            for t in self.tasks.values():
-                if t.active:
-                    active_task = t
-                    break
+	active_task = None
+        for t in self.tasks.values():
+            if t.active:
+                active_task = t
+                break
 
-            if active_task:
+        if active_task:
+            self.sys_tray_icon.setIcon(self.active_icon)
+
+            if actmon.get_idle_time() >= 15*60*1000:
                 inactive_start_time = time.time() - 15*60
                 value = QtGui.QMessageBox.question(self, "No Activity", "No activity since %s. Stop '%s'?" %
                     (time.strftime("%H:%M", time.localtime(inactive_start_time)), active_task.label.text()), "Yes", "No")
                 if value == 0:
                     active_task.stop(inactive_start_time)
+        else:
+            self.sys_tray_icon.setIcon(self.inactive_icon)
 
     def add(self):
         row = self.ui.main.layout().rowCount()
@@ -193,6 +199,8 @@ class Mainwindow(QtGui.QMainWindow):
                 if t.active:
                     t.stop()
             task.start()
+
+        self.update()
 
     def exit_action(self):
         self.exit = True
