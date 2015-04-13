@@ -68,6 +68,9 @@ class Task(QtCore.QObject):
         self.button.setCheckable(True)
         self.tray = QtGui.QAction("Task", parent)
         self.tray.setCheckable(True)
+        self.delete_button = QtGui.QPushButton("", parent)
+        self.delete_button.setFixedSize(QtCore.QSize(15, 15))
+        self.delete_button.setStyleSheet("border-image:url(" + ROOT + "/delete.png);")
         self.start_time = 0
         self.value = 0
         self.active = False
@@ -180,12 +183,26 @@ class Mainwindow(QtGui.QMainWindow):
 
         task.button.clicked.connect(lambda: self.toggle_state(id))
         task.tray.triggered.connect(lambda: self.toggle_state(id))
+        task.delete_button.clicked.connect(lambda: self.delete(id))
         self.tasks[id] = task
 
-        self.ui.main.layout().addWidget(task.label, row, 0)
-        self.ui.main.layout().addWidget(task.time, row, 1)
-        self.ui.main.layout().addWidget(task.button, row, 2)
+        self.ui.main.layout().addWidget(task.delete_button, row, 0)
+        self.ui.main.layout().addWidget(task.label, row, 1)
+        self.ui.main.layout().addWidget(task.time, row, 2)
+        self.ui.main.layout().addWidget(task.button, row, 3)
         self.sys_tray_menu.addAction(task.tray)
+
+        self.update()
+
+    def delete(self, id):
+        self.sys_tray_menu.removeAction(self.tasks[id].tray)
+
+        self.tasks[id].label.close()
+        self.tasks[id].time.close()
+        self.tasks[id].button.close()
+        self.tasks[id].delete_button.close()
+
+        del self.tasks[id]
 
         self.update()
 
